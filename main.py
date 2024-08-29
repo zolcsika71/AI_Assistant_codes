@@ -1,6 +1,5 @@
 import logging
 import os
-from typing import Tuple
 
 import numpy as np
 import pandas as pd
@@ -20,35 +19,28 @@ class EnvManager:
     def __init__(self):
         """Initialize the EnvManager, load the .env file, and store environment variables."""
         self._load_dotenv()
-        self._env_cache = {}
+        self.key = None
 
-    def _load_dotenv(self):
+    @staticmethod
+    def _load_dotenv():
         """Load the .env file."""
         dotenv_path = find_dotenv()
         if not dotenv_path:
-            raise FileNotFoundError('Could not find the .env file. Please ensure it exists in the project root.')
+            raise FileNotFoundError(
+                'Could not find the .env file. Please ensure it exists in the project root.'
+            )
         load_dotenv(dotenv_path)
 
-    def get_env_variable(self, var_name: str, default: str = None) -> str:
-        """
-        Retrieve an environment variable or return a default value if not found.
-
-        :param var_name: The name of the environment variable.
-        :param default: The default value to return if the variable is not found.
-        :return: The value of the environment variable or the default value.
-        """
-        if var_name in self._env_cache:
-            return self._env_cache[var_name]
-
-        value = os.getenv(var_name, default)
+    def get_env_variable(self) -> str:
+        value = os.getenv(self.key)
         if value is None:
-            logging.warning(f'{var_name} is not set in the .env file. Using default value: {default}')
-        self._env_cache[var_name] = value
+            logging.warning(f'{self.key} is not set in the .env file')
         return value
 
     def validate_env(self, key: str) -> str:
         """Validate and return the environment variables."""
-        return self.get_env_variable(key)
+        self.key = key
+        return self.get_env_variable()
 
 
 class YFinanceService:
@@ -102,8 +94,8 @@ class YFinanceService:
             return self.data['Adj Close']
         adjusted_close = self.data['Close'].copy()
         adjustment_factor = (
-                                self.data['Stock Splits'].replace(0, 1).iloc[::-1].cumprod()
-                            ).iloc[::-1]
+            self.data['Stock Splits'].replace(0, 1).iloc[::-1].cumprod()
+        ).iloc[::-1]
         adjusted_close /= adjustment_factor
         adjusted_close -= self.data['Dividends'].cumsum()
         return adjusted_close
@@ -130,6 +122,7 @@ class YFinanceService:
             else:
                 logging.error(f"Invalid return type: {return_type}")
                 raise ValueError("Invalid return type. Choose 'simple' or 'log'.")
+
             logging.info(f"Calculated {return_type} returns for symbol: {self.symbol}")
             return returns.dropna()
         except Exception as e:
